@@ -1,0 +1,74 @@
+-- =============================================
+-- File: bit_shifter_fsm.smv
+-- Description: Formal verification of a 2-bit shifter FSM
+--              with LTL specifications for behavior validation
+-- Author: [Sardar Ali Khamosh]
+-- Date: [2025-05-06]
+-- =============================================
+
+MODULE main
+VAR
+    -- State variables
+    state : {a, B, C, D};  -- FSM states
+    input : boolean;       -- Control input
+    
+    -- Output bits
+    Bit1 : boolean;        -- First bit output
+    Bit2 : boolean;        -- Second bit output
+
+ASSIGN
+    -- Initial state configuration
+    init(state) := a;
+    init(Bit1) := FALSE;
+    init(Bit2) := FALSE;
+
+    -- State transition logic
+    next(state) := case
+        state = a & input : B;     -- State a → B on input=TRUE
+        state = a & !input : a;    -- State a self-loop on input=FALSE
+        
+        state = B & input : D;     -- State B → D on input=TRUE
+        state = B & !input : C;    -- State B → C on input=FALSE
+        
+        state = C & input : B;     -- State C → B on input=TRUE
+        state = C & !input : a;    -- State C → a on input=FALSE
+        
+        state = D & input : D;     -- State D self-loop on input=TRUE
+        state = D & !input : C;    -- State D → C on input=FALSE
+        
+        TRUE : state;              -- Fallback (should never be reached)
+    esac;
+
+    -- Bit1 output logic (mirrors input in all states)
+    next(Bit1) := case
+        state = a : input;
+        state = B : input;
+        state = C : input;
+        state = D : input;
+        TRUE : Bit1;              -- Persist if no case matches
+    esac;
+
+    -- Bit2 output logic (state-dependent)
+    next(Bit2) := case
+        state = a : FALSE;        -- Always FALSE in state a
+        state = B : TRUE;         -- Always TRUE in state B
+        state = C : !input;       -- Inverts input in state C
+        state = D : TRUE;         -- Always TRUE in state D
+        TRUE : Bit2;              -- Persist if no case matches
+    esac;
+
+-- =============================================
+-- LTL SPECIFICATIONS
+-- =============================================
+
+-- Specification 1: Bit1=TRUE implies next Bit2=TRUE
+LTLSPEC G(Bit1 -> X Bit2);
+
+-- Specification 2: Bit1 remains TRUE once set (latch behavior)
+LTLSPEC G(Bit1 -> X Bit1);
+
+-- Specification 3: No deadlock states
+LTLSPEC G(F state = a | F state = B | F state = C | F state = D);
+
+-- Specification 4: Eventually reaches state D
+LTLSPEC F state = D;
